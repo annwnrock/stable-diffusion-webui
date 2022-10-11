@@ -3,7 +3,7 @@ import gradio as gr
 
 re_param_code = r"\s*([\w ]+):\s*([^,]+)(?:,|$)"
 re_param = re.compile(re_param_code)
-re_params = re.compile(r"^(?:" + re_param_code + "){3,}$")
+re_params = re.compile(f"^(?:{re_param_code}" + "){3,}$")
 re_imagesize = re.compile(r"^(\d+)x(\d+)$")
 type_of_gr_update = type(gr.update())
 
@@ -31,7 +31,7 @@ Steps: 20, Sampler: Euler a, CFG scale: 7, Seed: 965400086, Size: 512x512, Model
         lines.append(lastline)
         lastline = ''
 
-    for i, line in enumerate(lines):
+    for line in lines:
         line = line.strip()
         if line.startswith("Negative prompt:"):
             done_with_prompt = True
@@ -51,8 +51,8 @@ Steps: 20, Sampler: Euler a, CFG scale: 7, Seed: 965400086, Size: 512x512, Model
     for k, v in re_param.findall(lastline):
         m = re_imagesize.match(v)
         if m is not None:
-            res[k+"-1"] = m.group(1)
-            res[k+"-2"] = m.group(2)
+            res[f"{k}-1"] = m.group(1)
+            res[f"{k}-2"] = m.group(2)
         else:
             res[k] = v
 
@@ -65,11 +65,7 @@ def connect_paste(button, paste_fields, input_comp, js=None):
         res = []
 
         for output, key in paste_fields:
-            if callable(key):
-                v = key(params)
-            else:
-                v = params.get(key, None)
-
+            v = key(params) if callable(key) else params.get(key, None)
             if v is None:
                 res.append(gr.update())
             elif isinstance(v, type_of_gr_update):

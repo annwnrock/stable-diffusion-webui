@@ -133,16 +133,18 @@ def run_pnginfo(image):
 
     geninfo = items.get('parameters', geninfo)
 
-    info = ''
-    for key, text in items.items():
-        info += f"""
+    info = ''.join(
+        f"""
 <div>
 <p><b>{plaintext_to_html(str(key))}</b></p>
 <p>{plaintext_to_html(str(text))}</p>
 </div>
-""".strip()+"\n"
+""".strip()
+        + "\n"
+        for key, text in items.items()
+    )
 
-    if len(info) == 0:
+    if not info:
         message = "Nothing found in the image."
         info = f"<div><p>{message}<p></div>"
 
@@ -184,13 +186,13 @@ def run_modelmerger(primary_model_name, secondary_model_name, interp_method, int
     }
     theta_func = theta_funcs[interp_method]
 
-    print(f"Merging...")
+    print("Merging...")
     for key in tqdm.tqdm(theta_0.keys()):
         if 'model' in key and key in theta_1:
-            theta_0[key] = theta_func(theta_0[key], theta_1[key], (float(1.0) - interp_amount))  # Need to reverse the interp_amount to match the desired mix ration in the merged checkpoint
+            theta_0[key] = theta_func(theta_0[key], theta_1[key], 1.0 - interp_amount)
             if save_as_half:
                 theta_0[key] = theta_0[key].half()
-    
+
     for key in theta_1.keys():
         if 'model' in key and key not in theta_0:
             theta_0[key] = theta_1[key]
@@ -199,8 +201,13 @@ def run_modelmerger(primary_model_name, secondary_model_name, interp_method, int
 
     ckpt_dir = shared.cmd_opts.ckpt_dir or sd_models.model_path
 
-    filename = primary_model_info.model_name + '_' + str(round(interp_amount, 2)) + '-' + secondary_model_info.model_name + '_' + str(round((float(1.0) - interp_amount), 2)) + '-' + interp_method.replace(" ", "_") + '-merged.ckpt'
-    filename = filename if custom_name == '' else (custom_name + '.ckpt')
+    filename = (
+        f'{primary_model_info.model_name}_{str(round(interp_amount, 2))}-{secondary_model_info.model_name}_{str(round(1.0 - interp_amount, 2))}-'
+        + interp_method.replace(" ", "_")
+        + '-merged.ckpt'
+    )
+
+    filename = filename if custom_name == '' else f'{custom_name}.ckpt'
     output_modelname = os.path.join(ckpt_dir, filename)
 
     print(f"Saving to {output_modelname}...")
@@ -208,5 +215,8 @@ def run_modelmerger(primary_model_name, secondary_model_name, interp_method, int
 
     sd_models.list_models()
 
-    print(f"Checkpoint saved.")
-    return ["Checkpoint saved to " + output_modelname] + [gr.Dropdown.update(choices=sd_models.checkpoint_tiles()) for _ in range(3)]
+    print("Checkpoint saved.")
+    return [f"Checkpoint saved to {output_modelname}"] + [
+        gr.Dropdown.update(choices=sd_models.checkpoint_tiles())
+        for _ in range(3)
+    ]

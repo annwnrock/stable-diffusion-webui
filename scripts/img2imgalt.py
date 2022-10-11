@@ -137,9 +137,9 @@ class Script(scripts.Script):
             lat = (p.init_latent.cpu().numpy() * 10).astype(int)
 
             same_params = self.cache is not None and self.cache.cfg_scale == cfg and self.cache.steps == st \
-                                and self.cache.original_prompt == original_prompt \
-                                and self.cache.original_negative_prompt == original_negative_prompt \
-                                and self.cache.sigma_adjustment == sigma_adjustment
+                                    and self.cache.original_prompt == original_prompt \
+                                    and self.cache.original_negative_prompt == original_negative_prompt \
+                                    and self.cache.sigma_adjustment == sigma_adjustment
             same_everything = same_params and self.cache.latent.shape == lat.shape and np.abs(self.cache.latent-lat).sum() < 100
 
             if same_everything:
@@ -155,17 +155,17 @@ class Script(scripts.Script):
                 self.cache = Cached(rec_noise, cfg, st, lat, original_prompt, original_negative_prompt, sigma_adjustment)
 
             rand_noise = processing.create_random_tensors(p.init_latent.shape[1:], [p.seed + x + 1 for x in range(p.init_latent.shape[0])])
-            
+
             combined_noise = ((1 - randomness) * rec_noise + randomness * rand_noise) / ((randomness**2 + (1-randomness)**2) ** 0.5)
-            
+
             sampler = sd_samplers.create_sampler_with_index(sd_samplers.samplers, p.sampler_index, p.sd_model)
 
             sigmas = sampler.model_wrap.get_sigmas(p.steps)
-            
+
             noise_dt = combined_noise - (p.init_latent / sigmas[0])
-            
+
             p.seed = p.seed + 1
-            
+
             return sampler.sample_img2img(p, p.init_latent, noise_dt, conditioning, unconditional_conditioning)
 
         p.sample = sample_extra

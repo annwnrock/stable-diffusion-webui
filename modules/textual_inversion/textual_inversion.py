@@ -128,11 +128,14 @@ class EmbeddingDatabase:
         if possible_matches is None:
             return None, None
 
-        for ids, embedding in possible_matches:
-            if tokens[offset:offset + len(ids)] == ids:
-                return embedding, len(ids)
-
-        return None, None
+        return next(
+            (
+                (embedding, len(ids))
+                for ids, embedding in possible_matches
+                if tokens[offset : offset + len(ids)] == ids
+            ),
+            (None, None),
+        )
 
 
 def create_embedding(name, num_vectors_per_token, init_text='*'):

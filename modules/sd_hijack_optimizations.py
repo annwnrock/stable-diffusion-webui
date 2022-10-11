@@ -81,7 +81,6 @@ def split_cross_attention_forward(self, x, context=None, mask=None):
     mem_free_torch = mem_reserved - mem_active
     mem_free_total = mem_free_cuda + mem_free_torch
 
-    gb = 1024 ** 3
     tensor_size = q.shape[0] * q.shape[1] * k.shape[1] * q.element_size()
     modifier = 3 if q.element_size() == 2 else 2.5
     mem_required = tensor_size * modifier
@@ -94,6 +93,7 @@ def split_cross_attention_forward(self, x, context=None, mask=None):
 
     if steps > 64:
         max_res = math.floor(math.sqrt(math.sqrt(mem_free_total / 2.5)) / 8) * 64
+        gb = 1024 ** 3
         raise RuntimeError(f'Not enough memory, use lower resolution (max approx. {max_res}x{max_res}). '
                            f'Need: {mem_required / 64 / gb:0.1f}GB free, Have:{mem_free_total / gb:0.1f}GB free')
 

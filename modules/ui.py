@@ -89,15 +89,11 @@ def image_from_url_text(filedata):
         filedata = filedata[len("data:image/png;base64,"):]
 
     filedata = base64.decodebytes(filedata.encode('utf-8'))
-    image = Image.open(io.BytesIO(filedata))
-    return image
+    return Image.open(io.BytesIO(filedata))
 
 
 def send_gradio_gallery_to_image(x):
-    if len(x) == 0:
-        return None
-
-    return image_from_url_text(x[0])
+    return None if len(x) == 0 else image_from_url_text(x[0])
 
 
 def save_files(js_data, images, do_make_zip, index):
@@ -185,14 +181,17 @@ def wrap_gradio_call(func, extra_outputs=None):
             if extra_outputs_array is None:
                 extra_outputs_array = [None, '']
 
-            res = extra_outputs_array + [f"<div class='error'>{plaintext_to_html(type(e).__name__+': '+str(e))}</div>"]
+            res = extra_outputs_array + [
+                f"<div class='error'>{plaintext_to_html(f'{type(e).__name__}: {str(e)}')}</div>"
+            ]
+
 
         elapsed = time.perf_counter() - t
         elapsed_m = int(elapsed // 60)
         elapsed_s = elapsed % 60
         elapsed_text = f"{elapsed_s:.2f}s"
         if (elapsed_m > 0):
-            elapsed_text = f"{elapsed_m}m "+elapsed_text
+            elapsed_text = f"{elapsed_m}m {elapsed_text}"
 
         if run_memmon:
             mem_stats = {k: -(v//-(1024*1024)) for k, v in shared.mem_mon.stop().items()}
@@ -233,17 +232,22 @@ def check_progress_call(id_part):
 
     progressbar = ""
     if opts.show_progressbar:
-        progressbar = f"""<div class='progressDiv'><div class='progress' style="width:{progress * 100}%">{str(int(progress*100))+"%" if progress > 0.01 else ""}</div></div>"""
+        progressbar = f"""<div class='progressDiv'><div class='progress' style="width:{progress * 100}%">{f"{int(progress * 100)}%" if progress > 0.01 else ""}</div></div>"""
+
 
     image = gr_show(False)
     preview_visibility = gr_show(False)
 
     if opts.show_progress_every_n_steps > 0:
-        if shared.parallel_processing_allowed:
-
-            if shared.state.sampling_step - shared.state.current_image_sampling_step >= opts.show_progress_every_n_steps and shared.state.current_latent is not None:
-                shared.state.current_image = modules.sd_samplers.sample_to_image(shared.state.current_latent)
-                shared.state.current_image_sampling_step = shared.state.sampling_step
+        if (
+            shared.parallel_processing_allowed
+            and shared.state.sampling_step
+            - shared.state.current_image_sampling_step
+            >= opts.show_progress_every_n_steps
+            and shared.state.current_latent is not None
+        ):
+            shared.state.current_image = modules.sd_samplers.sample_to_image(shared.state.current_latent)
+            shared.state.current_image_sampling_step = shared.state.sampling_step
 
         image = shared.state.current_image
 
@@ -270,10 +274,16 @@ def check_progress_call_initial(id_part):
 
 
 def roll_artist(prompt):
-    allowed_cats = set([x for x in shared.artist_db.categories() if len(opts.random_artist_categories)==0 or x in opts.random_artist_categories])
+    allowed_cats = {
+        x
+        for x in shared.artist_db.categories()
+        if len(opts.random_artist_categories) == 0
+        or x in opts.random_artist_categories
+    }
+
     artist = random.choice([x for x in shared.artist_db.artists if x.category in allowed_cats])
 
-    return prompt + ", " + artist.name if prompt != '' else artist.name
+    return f"{prompt}, {artist.name}" if prompt != '' else artist.name
 
 
 def visit(x, func, path=""):
@@ -281,7 +291,7 @@ def visit(x, func, path=""):
         for c in x.children:
             visit(c, func, path)
     elif x.label is not None:
-        func(path + "/" + str(x.label), x)
+        func(f"{path}/{str(x.label)}", x)
 
 
 def add_style(name: str, prompt: str, negative_prompt: str):
@@ -402,7 +412,11 @@ def update_token_counter(text, steps):
 
     flat_prompts = reduce(lambda list1, list2: list1+list2, prompt_schedules)
     prompts = [prompt_text for step, prompt_text in flat_prompts]
-    tokens, token_count, max_length = max([model_hijack.tokenize(prompt) for prompt in prompts], key=lambda args: args[1])
+    tokens, token_count, max_length = max(
+        (model_hijack.tokenize(prompt) for prompt in prompts),
+        key=lambda args: args[1],
+    )
+
     style_class = ' class="red"' if (token_count > max_length) else ""
     return f"<span {style_class}>{token_count}/{max_length}</span>"
 

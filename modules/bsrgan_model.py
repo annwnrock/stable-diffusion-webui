@@ -25,10 +25,7 @@ class UpscalerBSRGAN(modules.upscaler.Upscaler):
             scaler_data = modules.upscaler.UpscalerData(self.model_name, self.model_url, self, 4)
             scalers.append(scaler_data)
         for file in model_paths:
-            if "http" in file:
-                name = self.model_name
-            else:
-                name = modelloader.friendly_name(file)
+            name = self.model_name if "http" in file else modelloader.friendly_name(file)
             try:
                 scaler_data = modules.upscaler.UpscalerData(name, file, self, 4)
                 scalers.append(scaler_data)
@@ -60,8 +57,13 @@ class UpscalerBSRGAN(modules.upscaler.Upscaler):
 
     def load_model(self, path: str):
         if "http" in path:
-            filename = load_file_from_url(url=self.model_url, model_dir=self.model_path, file_name="%s.pth" % self.name,
-                                          progress=True)
+            filename = load_file_from_url(
+                url=self.model_url,
+                model_dir=self.model_path,
+                file_name=f"{self.name}.pth",
+                progress=True,
+            )
+
         else:
             filename = path
         if not os.path.exists(filename) or filename is None:

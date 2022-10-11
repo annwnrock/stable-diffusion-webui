@@ -71,7 +71,7 @@ def list_models():
         title, short_model_name = modeltitle(filename, h)
 
         basename, _ = os.path.splitext(filename)
-        config = basename + ".yaml"
+        config = f"{basename}.yaml"
         if not os.path.exists(config):
             config = shared.cmd_opts.config
 
@@ -80,9 +80,7 @@ def list_models():
 
 def get_closet_checkpoint_match(searchString):
     applicable = sorted([info for info in checkpoints_list.values() if searchString in info.title], key = lambda x:len(x.title))
-    if len(applicable) > 0:
-        return applicable[0]
-    return None
+    return applicable[0] if len(applicable) > 0 else None
 
 
 def model_hash(filename):
@@ -93,7 +91,7 @@ def model_hash(filename):
 
             file.seek(0x100000)
             m.update(file.read(0x10000))
-            return m.hexdigest()[0:8]
+            return m.hexdigest()[:8]
     except FileNotFoundError:
         return 'NOFILE'
 
@@ -105,13 +103,21 @@ def select_checkpoint():
         return checkpoint_info
 
     if len(checkpoints_list) == 0:
-        print(f"No checkpoints found. When searching for checkpoints, looked at:", file=sys.stderr)
+        print(
+            "No checkpoints found. When searching for checkpoints, looked at:",
+            file=sys.stderr,
+        )
+
         if shared.cmd_opts.ckpt is not None:
             print(f" - file {os.path.abspath(shared.cmd_opts.ckpt)}", file=sys.stderr)
         print(f" - directory {model_path}", file=sys.stderr)
         if shared.cmd_opts.ckpt_dir is not None:
             print(f" - directory {os.path.abspath(shared.cmd_opts.ckpt_dir)}", file=sys.stderr)
-        print(f"Can't run without a checkpoint. Find and place a .ckpt file into any of those locations. The program will exit.", file=sys.stderr)
+        print(
+            "Can't run without a checkpoint. Find and place a .ckpt file into any of those locations. The program will exit.",
+            file=sys.stderr,
+        )
+
         exit(1)
 
     checkpoint_info = next(iter(checkpoints_list.values()))
@@ -122,10 +128,7 @@ def select_checkpoint():
 
 
 def get_state_dict_from_checkpoint(pl_sd):
-    if "state_dict" in pl_sd:
-        return pl_sd["state_dict"]
-
-    return pl_sd
+    return pl_sd["state_dict"] if "state_dict" in pl_sd else pl_sd
 
 
 def load_model_weights(model, checkpoint_info):
@@ -151,7 +154,7 @@ def load_model_weights(model, checkpoint_info):
     devices.dtype = torch.float32 if shared.cmd_opts.no_half else torch.float16
     devices.dtype_vae = torch.float32 if shared.cmd_opts.no_half or shared.cmd_opts.no_half_vae else torch.float16
 
-    vae_file = os.path.splitext(checkpoint_file)[0] + ".vae.pt"
+    vae_file = f"{os.path.splitext(checkpoint_file)[0]}.vae.pt"
 
     if not os.path.exists(vae_file) and shared.cmd_opts.vae_path is not None:
         vae_file = shared.cmd_opts.vae_path
@@ -159,7 +162,7 @@ def load_model_weights(model, checkpoint_info):
     if os.path.exists(vae_file):
         print(f"Loading VAE weights from: {vae_file}")
         vae_ckpt = torch.load(vae_file, map_location="cpu")
-        vae_dict = {k: v for k, v in vae_ckpt["state_dict"].items() if k[0:4] != "loss"}
+        vae_dict = {k: v for k, v in vae_ckpt["state_dict"].items() if k[:4] != "loss"}
 
         model.first_stage_model.load_state_dict(vae_dict)
 
@@ -190,7 +193,7 @@ def load_model():
 
     sd_model.eval()
 
-    print(f"Model loaded.")
+    print("Model loaded.")
     return sd_model
 
 
@@ -219,5 +222,5 @@ def reload_model_weights(sd_model, info=None):
     if not shared.cmd_opts.lowvram and not shared.cmd_opts.medvram:
         sd_model.to(devices.device)
 
-    print(f"Weights loaded.")
+    print("Weights loaded.")
     return sd_model

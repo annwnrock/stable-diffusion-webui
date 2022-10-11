@@ -113,15 +113,10 @@ class FrozenCLIPEmbedderWithCustomWords(torch.nn.Module):
         for text, ident in tokens_with_parens:
             mult = 1.0
             for c in text:
-                if c == '[':
+                if c in ['[', ')']:
                     mult /= 1.1
-                if c == ']':
+                elif c in [']', '(']:
                     mult *= 1.1
-                if c == '(':
-                    mult *= 1.1
-                if c == ')':
-                    mult /= 1.1
-
             if mult != 1.0:
                 self.token_mults[ident] = mult
 
@@ -156,11 +151,11 @@ class FrozenCLIPEmbedderWithCustomWords(torch.nn.Module):
 
                     remade_tokens = remade_tokens[:last_comma]
                     length = len(remade_tokens)
-                    
+
                     rem = int(math.ceil(length / 75)) * 75 - length
                     remade_tokens += [id_end] * rem + reloc_tokens
                     multipliers = multipliers[:last_comma] + [1.0] * rem + reloc_mults
-                
+
                 if embedding is None:
                     remade_tokens.append(token)
                     multipliers.append(weight)
@@ -269,11 +264,11 @@ class FrozenCLIPEmbedderWithCustomWords(torch.nn.Module):
 
                 token_count = len(remade_tokens)
                 remade_tokens = remade_tokens + [id_end] * (maxlen - 2 - len(remade_tokens))
-                remade_tokens = [id_start] + remade_tokens[0:maxlen-2] + [id_end]
+                remade_tokens = [id_start] + remade_tokens[:maxlen-2] + [id_end]
                 cache[tuple_tokens] = (remade_tokens, fixes, multipliers)
 
             multipliers = multipliers + [1.0] * (maxlen - 2 - len(multipliers))
-            multipliers = [1.0] + multipliers[0:maxlen - 2] + [1.0]
+            multipliers = [1.0] + multipliers[:maxlen - 2] + [1.0]
 
             remade_batch_tokens.append(remade_tokens)
             hijack_fixes.append(fixes)
@@ -291,11 +286,11 @@ class FrozenCLIPEmbedderWithCustomWords(torch.nn.Module):
 
         if len(used_custom_terms) > 0:
             self.hijack.comments.append("Used embeddings: " + ", ".join([f'{word} [{checksum}]' for word, checksum in used_custom_terms]))
-        
+
         if use_old:
             self.hijack.fixes = hijack_fixes
             return self.process_tokens(remade_batch_tokens, batch_multipliers)
-        
+
         z = None
         i = 0
         while max(map(len, remade_batch_tokens)) != 0:
@@ -304,19 +299,16 @@ class FrozenCLIPEmbedderWithCustomWords(torch.nn.Module):
 
             self.hijack.fixes = []
             for unfiltered in hijack_fixes:
-                fixes = []
-                for fix in unfiltered:
-                    if fix[0] == i:
-                        fixes.append(fix[1])
+                fixes = [fix[1] for fix in unfiltered if fix[0] == i]
                 self.hijack.fixes.append(fixes)
-            
+
             z1 = self.process_tokens([x[:75] for x in remade_batch_tokens], [x[:75] for x in batch_multipliers])
             z = z1 if z is None else torch.cat((z, z1), axis=-2)
-            
+
             remade_batch_tokens = rem_tokens
             batch_multipliers = rem_multipliers
             i += 1
-        
+
         return z
         
     
@@ -357,7 +349,11 @@ class EmbeddingsWithFixes(torch.nn.Module):
 
         inputs_embeds = self.wrapped(input_ids)
 
-        if batch_fixes is None or len(batch_fixes) == 0 or max([len(x) for x in batch_fixes]) == 0:
+        if (
+            batch_fixes is None
+            or len(batch_fixes) == 0
+            or max(len(x) for x in batch_fixes) == 0
+        ):
             return inputs_embeds
 
         vecs = []
@@ -365,7 +361,14 @@ class EmbeddingsWithFixes(torch.nn.Module):
             for offset, embedding in fixes:
                 emb = embedding.vec
                 emb_len = min(tensor.shape[0]-offset-1, emb.shape[0])
-                tensor = torch.cat([tensor[0:offset+1], emb[0:emb_len], tensor[offset+1+emb_len:]])
+                tensor = torch.cat(
+                    [
+                        tensor[: offset + 1],
+                        emb[:emb_len],
+                        tensor[offset + 1 + emb_len :],
+                    ]
+                )
+
 
             vecs.append(tensor)
 

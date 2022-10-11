@@ -146,7 +146,13 @@ def draw_grid_annotations(im, width, height, hor_texts, ver_texts):
     color_active = (0, 0, 0)
     color_inactive = (153, 153, 153)
 
-    pad_left = 0 if sum([sum([len(line.text) for line in lines]) for lines in ver_texts]) == 0 else width * 3 // 4
+    pad_left = (
+        0
+        if sum(sum(len(line.text) for line in lines) for lines in ver_texts)
+        == 0
+        else width * 3 // 4
+    )
+
 
     cols = im.width // width
     rows = im.height // height
@@ -169,9 +175,17 @@ def draw_grid_annotations(im, width, height, hor_texts, ver_texts):
             bbox = calc_d.multiline_textbbox((0, 0), line.text, font=fnt)
             line.size = (bbox[2] - bbox[0], bbox[3] - bbox[1])
 
-    hor_text_heights = [sum([line.size[1] + line_spacing for line in lines]) - line_spacing for lines in hor_texts]
-    ver_text_heights = [sum([line.size[1] + line_spacing for line in lines]) - line_spacing * len(lines) for lines in
-                        ver_texts]
+    hor_text_heights = [
+        sum(line.size[1] + line_spacing for line in lines) - line_spacing
+        for lines in hor_texts
+    ]
+
+    ver_text_heights = [
+        sum(line.size[1] + line_spacing for line in lines)
+        - line_spacing * len(lines)
+        for lines in ver_texts
+    ]
+
 
     pad_top = max(hor_text_heights) + line_spacing * 2
 
@@ -217,7 +231,7 @@ def resize_image(resize_mode, im, width, height):
 
         if scale > 1.0:
             upscalers = [x for x in shared.sd_upscalers if x.name == opts.upscaler_for_img2img]
-            assert len(upscalers) > 0, f"could not find upscaler named {opts.upscaler_for_img2img}"
+            assert upscalers, f"could not find upscaler named {opts.upscaler_for_img2img}"
 
             upscaler = upscalers[0]
             im = upscaler.scaler.upscale(im, scale, upscaler.data_path)
@@ -292,7 +306,14 @@ def apply_filename_pattern(x, p, seed, prompt):
         x = x.replace("[cfg]", str(p.cfg_scale))
         x = x.replace("[width]", str(p.width))
         x = x.replace("[height]", str(p.height))
-        x = x.replace("[styles]", sanitize_filename_part(", ".join([x for x in p.styles if not x == "None"]) or "None", replace_spaces=False))
+        x = x.replace(
+            "[styles]",
+            sanitize_filename_part(
+                ", ".join([x for x in p.styles if x != "None"]) or "None",
+                replace_spaces=False,
+            ),
+        )
+
         x = x.replace("[sampler]", sanitize_filename_part(sd_samplers.samplers[p.sampler_index].name, replace_spaces=False))
 
     x = x.replace("[model_hash]", getattr(p, "sd_model_hash", shared.sd_model.sd_model_hash))
@@ -307,7 +328,7 @@ def apply_filename_pattern(x, p, seed, prompt):
             prompt_no_style = prompt
             for style in shared.prompt_styles.get_style_prompts(p.styles):
                 if len(style) > 0:
-                    style_parts = [y for y in style.split("{prompt}")]
+                    style_parts = list(style.split("{prompt}"))
                     for part in style_parts:
                         prompt_no_style = prompt_no_style.replace(part, "").replace(", ,", ",").strip().strip(',')
             prompt_no_style = prompt_no_style.replace(style, "").strip().strip(',').strip()
@@ -316,9 +337,15 @@ def apply_filename_pattern(x, p, seed, prompt):
         x = x.replace("[prompt_spaces]", sanitize_filename_part(prompt, replace_spaces=False))
         if "[prompt_words]" in x:
             words = [x for x in re_nonletters.split(prompt or "") if len(x) > 0]
-            if len(words) == 0:
+            if not words:
                 words = ["empty"]
-            x = x.replace("[prompt_words]", sanitize_filename_part(" ".join(words[0:max_prompt_words]), replace_spaces=False))
+            x = x.replace(
+                "[prompt_words]",
+                sanitize_filename_part(
+                    " ".join(words[:max_prompt_words]), replace_spaces=False
+                ),
+            )
+
 
     if cmd_opts.hide_ui_dir_config:
         x = re.sub(r'^[\\/]+|\.{2,}[\\/]+|[\\/]+\.{2,}', '', x)
@@ -334,7 +361,7 @@ def get_next_sequence_number(path, basename):
     """
     result = -1
     if basename != '':
-        basename = basename + "-"
+        basename = f"{basename}-"
 
     prefix_length = len(basename)
     for p in os.listdir(path):
@@ -389,7 +416,7 @@ def save_image(image, path, basename, seed=None, prompt=None, extension='png', i
         file_decoration = opts.samples_filename_pattern or "[seed]-[prompt_spaces]"
 
     if file_decoration != "":
-        file_decoration = "-" + file_decoration.lower()
+        file_decoration = f"-{file_decoration.lower()}"
 
     file_decoration = apply_filename_pattern(file_decoration, p, seed, prompt) + suffix
 
@@ -451,9 +478,9 @@ def save_image(image, path, basename, seed=None, prompt=None, extension='png', i
         elif oversize:
             image = image.resize((image.width * target_side_length // image.height, target_side_length), LANCZOS)
 
-        image.save(fullfn_without_extension + ".jpg", quality=opts.jpeg_quality)
+        image.save(f"{fullfn_without_extension}.jpg", quality=opts.jpeg_quality)
         if opts.enable_pnginfo and info is not None:
-            piexif.insert(exif_bytes(), fullfn_without_extension + ".jpg")
+            piexif.insert(exif_bytes(), f"{fullfn_without_extension}.jpg")
 
     if opts.save_txt and info is not None:
         txt_fullfn = f"{fullfn_without_extension}.txt"
