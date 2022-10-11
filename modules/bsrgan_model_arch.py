@@ -10,14 +10,9 @@ def initialize_weights(net_l, scale=1):
         net_l = [net_l]
     for net in net_l:
         for m in net.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, (nn.Conv2d, nn.Linear)):
                 init.kaiming_normal_(m.weight, a=0, mode='fan_in')
                 m.weight.data *= scale  # for residual block
-                if m.bias is not None:
-                    m.bias.data.zero_()
-            elif isinstance(m, nn.Linear):
-                init.kaiming_normal_(m.weight, a=0, mode='fan_in')
-                m.weight.data *= scale
                 if m.bias is not None:
                     m.bias.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
@@ -26,9 +21,7 @@ def initialize_weights(net_l, scale=1):
 
 
 def make_layer(block, n_layers):
-    layers = []
-    for _ in range(n_layers):
-        layers.append(block())
+    layers = [block() for _ in range(n_layers)]
     return nn.Sequential(*layers)
 
 
@@ -97,6 +90,4 @@ class RRDBNet(nn.Module):
         fea = self.lrelu(self.upconv1(F.interpolate(fea, scale_factor=2, mode='nearest')))
         if self.sf==4:
             fea = self.lrelu(self.upconv2(F.interpolate(fea, scale_factor=2, mode='nearest')))
-        out = self.conv_last(self.lrelu(self.HRconv(fea)))
-
-        return out
+        return self.conv_last(self.lrelu(self.HRconv(fea)))

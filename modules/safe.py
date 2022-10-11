@@ -17,8 +17,7 @@ TypedStorage = torch.storage.TypedStorage if hasattr(torch.storage, 'TypedStorag
 
 
 def encode(*args):
-    out = _codecs.encode(*args)
-    return out
+    return _codecs.encode(*args)
 
 
 class RestrictedUnpickler(pickle.Unpickler):
@@ -68,7 +67,7 @@ def check_pt(filename):
         # if it's not a zip file, it's an olf pytorch format, with five objects written to pickle
         with open(filename, "rb") as file:
             unpickler = RestrictedUnpickler(file)
-            for i in range(5):
+            for _ in range(5):
                 unpickler.load()
 
 
@@ -83,7 +82,11 @@ def load(filename, *args, **kwargs):
         print(f"Error verifying pickled file from {filename}:", file=sys.stderr)
         print(traceback.format_exc(), file=sys.stderr)
         print(f"\nThe file may be malicious, so the program is not going to read it.", file=sys.stderr)
-        print(f"You can skip this check with --disable-safe-unpickle commandline argument.", file=sys.stderr)
+        print(
+            "You can skip this check with --disable-safe-unpickle commandline argument.",
+            file=sys.stderr,
+        )
+
         return None
 
     return unsafe_torch_load(filename, *args, **kwargs)

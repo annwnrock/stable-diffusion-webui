@@ -28,8 +28,7 @@ opt_f = 8
 
 def setup_color_correction(image):
     logging.info("Calibrating color correction.")
-    correction_target = cv2.cvtColor(np.asarray(image.copy()), cv2.COLOR_RGB2LAB)
-    return correction_target
+    return cv2.cvtColor(np.asarray(image.copy()), cv2.COLOR_RGB2LAB)
 
 
 def apply_color_correction(correction, image):
@@ -196,8 +195,9 @@ def slerp(val, low, high):
 
     omega = torch.acos(dot)
     so = torch.sin(omega)
-    res = (torch.sin((1.0-val)*omega)/so).unsqueeze(1)*low + (torch.sin(val*omega)/so).unsqueeze(1) * high
-    return res
+    return (torch.sin((1.0 - val) * omega) / so).unsqueeze(1) * low + (
+        torch.sin(val * omega) / so
+    ).unsqueeze(1) * high
 
 
 def create_random_tensors(shape, seeds, subseeds=None, subseed_strength=0.0, seed_resize_from_h=0, seed_resize_from_w=0, p=None):
@@ -236,8 +236,8 @@ def create_random_tensors(shape, seeds, subseeds=None, subseed_strength=0.0, see
             dy = (shape[1] - noise_shape[1]) // 2
             w = noise_shape[2] if dx >= 0 else noise_shape[2] + 2 * dx
             h = noise_shape[1] if dy >= 0 else noise_shape[1] + 2 * dy
-            tx = 0 if dx < 0 else dx
-            ty = 0 if dy < 0 else dy
+            tx = max(dx, 0)
+            ty = max(dy, 0)
             dx = max(-dx, 0)
             dy = max(-dy, 0)
 
@@ -271,7 +271,7 @@ def decode_first_stage(model, x):
 
 def get_fixed_seed(seed):
     if seed is None or seed == '' or seed == -1:
-        return int(random.randrange(4294967294))
+        return random.randrange(4294967294)
 
     return seed
 
@@ -307,7 +307,7 @@ def create_infotext(p, all_prompts, all_seeds, all_subseeds, comments, iteration
         "ENSD": None if opts.eta_noise_seed_delta == 0 else opts.eta_noise_seed_delta,
     }
 
-    generation_params.update(p.extra_generation_params)
+    generation_params |= p.extra_generation_params
 
     generation_params_text = ", ".join([k if k == v else f'{k}: {v}' for k, v in generation_params.items() if v is not None])
 
@@ -376,7 +376,7 @@ def process_images(p: StableDiffusionProcessing) -> Processed:
         for n in range(p.n_iter):
             if state.skipped:
                 state.skipped = False
-            
+
             if state.interrupted:
                 break
 
@@ -551,7 +551,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 lowres_samples = torch.clamp((decoded_samples + 1.0) / 2.0, min=0.0, max=1.0)
 
                 batch_images = []
-                for i, x_sample in enumerate(lowres_samples):
+                for x_sample in lowres_samples:
                     x_sample = 255. * np.moveaxis(x_sample.cpu().numpy(), 0, 2)
                     x_sample = x_sample.astype(np.uint8)
                     image = Image.fromarray(x_sample)

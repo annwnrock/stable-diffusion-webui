@@ -83,7 +83,7 @@ def setup_img2img_steps(p, steps=None):
 
 
 def sample_to_image(samples):
-    x_sample = processing.decode_first_stage(shared.sd_model, samples[0:1])[0]
+    x_sample = processing.decode_first_stage(shared.sd_model, samples[:1])[0]
     x_sample = torch.clamp((x_sample + 1.0) / 2.0, min=0.0, max=1.0)
     x_sample = 255. * np.moveaxis(x_sample.cpu().numpy(), 0, 2)
     x_sample = x_sample.astype(np.uint8)
@@ -93,9 +93,12 @@ def sample_to_image(samples):
 def store_latent(decoded):
     state.current_latent = decoded
 
-    if opts.show_progress_every_n_steps > 0 and shared.state.sampling_step % opts.show_progress_every_n_steps == 0:
-        if not shared.parallel_processing_allowed:
-            shared.state.current_image = sample_to_image(decoded)
+    if (
+        opts.show_progress_every_n_steps > 0
+        and shared.state.sampling_step % opts.show_progress_every_n_steps == 0
+        and not shared.parallel_processing_allowed
+    ):
+        shared.state.current_image = sample_to_image(decoded)
 
 
 
@@ -139,7 +142,10 @@ class VanillaStableDiffusionSampler:
         conds_list, tensor = prompt_parser.reconstruct_multicond_batch(cond, self.step)
         unconditional_conditioning = prompt_parser.reconstruct_cond_batch(unconditional_conditioning, self.step)
 
-        assert all([len(conds) == 1 for conds in conds_list]), 'composition via AND is not supported for DDIM/PLMS samplers'
+        assert all(
+            len(conds) == 1 for conds in conds_list
+        ), 'composition via AND is not supported for DDIM/PLMS samplers'
+
         cond = tensor
 
         # for DDIM, shapes must match, we can't just process cond and uncond independently;
@@ -192,9 +198,13 @@ class VanillaStableDiffusionSampler:
         self.init_latent = x
         self.step = 0
 
-        samples = self.sampler.decode(x1, conditioning, t_enc, unconditional_guidance_scale=p.cfg_scale, unconditional_conditioning=unconditional_conditioning)
-
-        return samples
+        return self.sampler.decode(
+            x1,
+            conditioning,
+            t_enc,
+            unconditional_guidance_scale=p.cfg_scale,
+            unconditional_conditioning=unconditional_conditioning,
+        )
 
     def sample(self, p, x, conditioning, unconditional_conditioning, steps=None):
         self.initialize(p)
@@ -298,7 +308,9 @@ class TorchHijack:
         if hasattr(torch, item):
             return getattr(torch, item)
 
-        raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, item))
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{item}'"
+        )
 
 
 class KDiffusionSampler:
@@ -345,10 +357,12 @@ class KDiffusionSampler:
         if self.sampler_noises is not None:
             k_diffusion.sampling.torch = TorchHijack(self)
 
-        extra_params_kwargs = {}
-        for param_name in self.extra_params:
-            if hasattr(p, param_name) and param_name in inspect.signature(self.func).parameters:
-                extra_params_kwargs[param_name] = getattr(p, param_name)
+        extra_params_kwargs = {
+            param_name: getattr(p, param_name)
+            for param_name in self.extra_params
+            if hasattr(p, param_name)
+            and param_name in inspect.signature(self.func).parameters
+        }
 
         if 'eta' in inspect.signature(self.func).parameters:
             extra_params_kwargs['eta'] = self.eta
@@ -396,6 +410,16 @@ class KDiffusionSampler:
                 extra_params_kwargs['n'] = steps
         else:
             extra_params_kwargs['sigmas'] = sigmas
-        samples = self.func(self.model_wrap_cfg, x, extra_args={'cond': conditioning, 'uncond': unconditional_conditioning, 'cond_scale': p.cfg_scale}, disable=False, callback=self.callback_state, **extra_params_kwargs)
-        return samples
+        return self.func(
+            self.model_wrap_cfg,
+            x,
+            extra_args={
+                'cond': conditioning,
+                'uncond': unconditional_conditioning,
+                'cond_scale': p.cfg_scale,
+            },
+            disable=False,
+            callback=self.callback_state,
+            **extra_params_kwargs
+        )
 

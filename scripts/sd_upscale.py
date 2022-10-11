@@ -34,7 +34,7 @@ class Script(scripts.Script):
         seed = p.seed
 
         init_img = p.init_images[0]
-        
+
         if(upscaler.name != "None"): 
             img = upscaler.scaler.upscale(init_img, 2, upscaler.data_path)
         else:
@@ -53,9 +53,7 @@ class Script(scripts.Script):
         work = []
 
         for y, h, row in grid.tiles:
-            for tiledata in row:
-                work.append(tiledata[2])
-
+            work.extend(tiledata[2] for tiledata in row)
         batch_count = math.ceil(len(work) / batch_size)
         state.job_count = batch_count * upscale_count
 

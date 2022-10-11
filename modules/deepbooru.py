@@ -42,10 +42,8 @@ def _load_tf_and_return_tags(pil_image, threshold):
 
     y = model.predict(image)[0]
 
-    result_dict = {}
+    result_dict = {tag: y[i] for i, tag in enumerate(tags)}
 
-    for i, tag in enumerate(tags):
-        result_dict[tag] = y[i]
     result_tags_out = []
     result_tags_print = []
     for tag in tags:

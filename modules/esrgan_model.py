@@ -32,10 +32,7 @@ def fix_model_layers(crt_model, pretrained_net):
             load_net_clean[k] = v
     pretrained_net = load_net_clean
 
-    tbd = []
-    for k, v in crt_net.items():
-        tbd.append(k)
-
+    tbd = [k for k, v in crt_net.items()]
     # directly copy
     for k, v in crt_net.items():
         if k in pretrained_net and pretrained_net[k].size() == v.size():
@@ -77,16 +74,12 @@ class UpscalerESRGAN(Upscaler):
         self.user_path = dirname
         super().__init__()
         model_paths = self.find_models(ext_filter=[".pt", ".pth"])
-        scalers = []
         if len(model_paths) == 0:
             scaler_data = UpscalerData(self.model_name, self.model_url, self, 4)
+            scalers = []
             scalers.append(scaler_data)
         for file in model_paths:
-            if "http" in file:
-                name = self.model_name
-            else:
-                name = modelloader.friendly_name(file)
-
+            name = self.model_name if "http" in file else modelloader.friendly_name(file)
             scaler_data = UpscalerData(name, file, self, 4)
             self.scalers.append(scaler_data)
 
@@ -100,13 +93,17 @@ class UpscalerESRGAN(Upscaler):
 
     def load_model(self, path: str):
         if "http" in path:
-            filename = load_file_from_url(url=self.model_url, model_dir=self.model_path,
-                                          file_name="%s.pth" % self.model_name,
-                                          progress=True)
+            filename = load_file_from_url(
+                url=self.model_url,
+                model_dir=self.model_path,
+                file_name=f"{self.model_name}.pth",
+                progress=True,
+            )
+
         else:
             filename = path
         if not os.path.exists(filename) or filename is None:
-            print("Unable to load %s from %s" % (self.model_path, filename))
+            print(f"Unable to load {self.model_path} from {filename}")
             return None
 
         pretrained_net = torch.load(filename, map_location='cpu' if devices.device_esrgan.type == 'mps' else None)
